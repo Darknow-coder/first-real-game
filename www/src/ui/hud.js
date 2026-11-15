@@ -18,7 +18,7 @@ export class Hud {
   setup({ title, objectives = [], mode = 'level' }) {
     this.mode = mode;
     this.objectives = objectives.filter((o) => o.kind !== 'land');
-    const pause = h('button', { class: 'icon-btn', 'aria-label': t('pause.title'), html: ICONS.pause, onclick: () => this.game.pause() });
+    const pause = h('button', { class: 'icon-btn', 'aria-label': t('pause.button'), html: ICONS.pause, onclick: () => this.game.pause() });
     this.titleEl = h('div', { class: 'hud-title' }, title);
     this.rightEl = h('div', { class: 'pill' }, h('span', { class: 'gold', html: ICONS.shard }), h('span', {}, '0'));
     this.rightVal = this.rightEl.lastChild;

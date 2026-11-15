@@ -439,12 +439,21 @@ export function albumScreen(game, tab = 'flakes') {
     if (!entries.length) content.append(h('div', { class: 'empty' }, t('album.empty')));
     const grid = h('div', { class: 'grid' });
     content.append(grid);
-    // Render thumbnails progressively to keep the UI responsive.
+    // Pages of 30 thumbnails, rendered progressively (keeps memory low).
+    const PAGE = 30;
+    let shown = 0;
     let i = 0;
-    const px = Math.round(130 * Math.min(2, window.devicePixelRatio || 1));
+    const px = Math.round(130 * Math.min(1.5, window.devicePixelRatio || 1));
+    const more = h('button', { class: 'btn ghost', style: { margin: '4px 0 24px' } }, t('album.more'));
+    more.addEventListener('click', () => {
+      more.remove();
+      shown += PAGE;
+      requestAnimationFrame(batch);
+    });
+    shown = PAGE;
     const batch = () => {
       if (!grid.isConnected && i > 0) return;
-      const end = Math.min(entries.length, i + 6);
+      const end = Math.min(entries.length, shown, i + 6);
       for (; i < end; i++) {
         const e = entries[i];
         const cell = h('button', { class: 'thumb', 'aria-label': t(`type.${e.type}`), onclick: () => game.openFlake(e.id) });
@@ -457,7 +466,8 @@ export function albumScreen(game, tab = 'flakes') {
         if (e.fav) cell.append(h('span', { class: 'fav', html: ICONS.heart }));
         grid.append(cell);
       }
-      if (i < entries.length) requestAnimationFrame(batch);
+      if (i < Math.min(entries.length, shown)) requestAnimationFrame(batch);
+      else if (i < entries.length) content.append(more);
     };
     requestAnimationFrame(batch);
   } else if (tab === 'types') {

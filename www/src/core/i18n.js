@@ -201,6 +201,7 @@ const fr = {
   'hud.size': '{v} mm',
 
   'pause.title': 'Pause',
+  'pause.button': 'Pause',
   'pause.resume': 'Reprendre',
   'pause.restart': 'Recommencer',
   'pause.quit': 'Quitter',
@@ -268,6 +269,7 @@ const fr = {
   'album.supportHint': 'Le support sert de fond à tes photos.',
   'album.count': '×{n}',
   'album.from': '{place} · {date}',
+  'album.more': 'Voir plus',
 
   'set.title': 'Réglages',
   'set.music': 'Musique',
@@ -486,6 +488,7 @@ const en = {
   'hint.masterpiece': 'Masterpiece: big, intact, unmelted, with at least three shapes',
   'hud.size': '{v} mm',
   'pause.title': 'Paused',
+  'pause.button': 'Pause',
   'pause.resume': 'Resume',
   'pause.restart': 'Restart',
   'pause.quit': 'Quit',
@@ -548,6 +551,7 @@ const en = {
   'album.supportHint': 'The support is the background of your photos.',
   'album.count': '×{n}',
   'album.from': '{place} · {date}',
+  'album.more': 'Show more',
   'set.title': 'Settings',
   'set.music': 'Music',
   'set.sfx': 'Sound effects',

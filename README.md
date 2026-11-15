@@ -27,7 +27,20 @@ donc chaque flocon est unique.
 Le choix du concept (et les pistes écartées) est expliqué dans [docs/CONCEPTS.md](docs/CONCEPTS.md).
 La conception détaillée est dans [docs/DESIGN.md](docs/DESIGN.md).
 
-## Lancer le jeu
+## Jouer en ligne (sans rien installer)
+
+**https://darknow-coder.github.io/first-real-game/**
+
+Le jeu est publié automatiquement sur GitHub Pages à chaque push
+(workflow `.github/workflows/pages.yml`) : les tests s'exécutent, puis le
+dossier `www/` est mis en ligne. Sur téléphone, le lien s'ouvre directement ; sur
+ordinateur, il fonctionne aussi (souris ou flèches du clavier).
+
+Activation, une seule fois : sur GitHub, ouvrir **Settings → Pages** et choisir
+**Source : GitHub Actions**, puis relancer la publication depuis l'onglet
+**Actions** (« Publish the game on GitHub Pages » → **Run workflow**).
+
+## Lancer le jeu en local
 
 Aucune dépendance n'est nécessaire, seulement Node.js 18 ou plus récent.
 
@@ -75,8 +88,8 @@ npm run e2e
 
 Test de bout en bout dans Chromium (émulation mobile) via Playwright. Il nécessite `npx playwright install chromium` et un serveur lancé avec `npm start`.
 
-Mise en ligne : après toute modification d'un fichier, incrémenter `VERSION`
-dans `www/sw.js`. Sinon, les joueurs ayant installé la PWA garderont l'ancienne version en cache.
+Le cache hors ligne fonctionne en « réseau d'abord » : un joueur connecté voit toujours la
+dernière version publiée.
 
 ## Transformer en application Android
 

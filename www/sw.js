@@ -1,6 +1,6 @@
 // Offline cache for the installable web version (PWA).
-// Bump VERSION whenever a file changes so players receive the update.
-const VERSION = 'flocon-v2';
+// VERSION is replaced by the commit id when deployed (see .github/workflows/pages.yml).
+const VERSION = 'flocon-dev';
 const ASSETS = [
   './',
   'index.html',
@@ -55,19 +55,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Network first (always the latest version when online), cache as fallback
+// so the game still works offline once it has been opened.
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== location.origin) return;
   event.respondWith(
-    caches.match(event.request).then(
-      (hit) =>
-        hit ||
-        fetch(event.request).then((res) => {
-          if (res.ok && new URL(event.request.url).origin === location.origin) {
-            const copy = res.clone();
-            caches.open(VERSION).then((cache) => cache.put(event.request, copy));
-          }
-          return res;
-        }),
-    ),
+    fetch(event.request)
+      .then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(VERSION).then((cache) => cache.put(event.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(event.request).then((hit) => hit || caches.match('index.html'))),
   );
 });

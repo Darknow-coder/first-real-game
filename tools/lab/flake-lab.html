@@ -1,0 +1,55 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Flake lab</title>
+<style>body{margin:0;background:#0a1028;color:#cde;font:12px sans-serif} canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+import { Crystal } from '/www/src/sim/crystal.js';
+import { drawCrystal } from '/www/src/render/crystalRender.js';
+import { LEVELS } from '/www/src/sim/levels.js';
+import { World } from '/www/src/sim/world.js';
+import { simulate } from '/www/src/sim/bot.js';
+import { analyse } from '/www/src/sim/classify.js';
+const recipes = [
+  ['plate', [['plate', 12]]],
+  ['sectored', [['plate', 7], ['plate', 6, 0.5], ['plate', 8, 1]]],
+  ['dendrite q.5', [['dendrite', 22, 0.5]]],
+  ['fern', [['dendrite', 26, 1]]],
+  ['needle', [['needle', 24, 0.75]]],
+  ['stellar plate', [['plate', 4], ['dendrite', 16, 0.75], ['plate', 7]]],
+  ['plate→dendrite', [['plate', 9], ['dendrite', 16, 1]]],
+  ['aurora', [['plate', 4], ['aurora', 18], ['dendrite', 6]]],
+  ['rimed', [['dendrite', 18, 0.75], ['rime', 60]]],
+  ['triangular', [['twist', 0], ['plate', 3]]],
+];
+const cell = 300, cols = 4;
+const level = new URLSearchParams(location.search).get('levels');
+const items = [];
+for (const [name, r] of recipes) {
+  let c;
+  if (name === 'triangular') { c = new Crystal(5); c.grow(0, 3); c.grow(0, 16, 0.75, 1); }
+  else c = Crystal.fromRecipe(3, r);
+  items.push([name, c]);
+}
+{ const c = Crystal.fromRecipe(9, [['dendrite', 20, 0.75]]); c.breakArm(1, 9); c.breakArm(4, 14); items.push(['broken', c]); }
+{ const c = Crystal.fromRecipe(9, [['dendrite', 20, 1]]); c.melt(5); items.push(['melted', c]); }
+{ const c = Crystal.fromRecipe(9, [['dendrite', 16, 0.75], ['plate', 4]]); c.attach(77, 16, 0, 0, Math.PI/6, true); items.push(['twelve', c]); }
+{ const c = Crystal.fromRecipe(9, [['plate', 6], ['dendrite', 12, 0.75]]); c.attach(78, 9, 12, 6, 0.4, false); items.push(['aggregate', c]); }
+if (level) {
+  for (const def of LEVELS.filter(l => level === 'all' || l.chapter === Number(level))) {
+    const w = new World(def, { seed: 1000, viewH: 720 }); simulate(w);
+    const a = analyse(w.crystal); items.push([`${def.id} ${a.type} R${w.crystal.R.toFixed(0)}`, w.crystal]);
+  }
+}
+const rows = Math.ceil(items.length / cols);
+const cv = document.getElementById('c');
+cv.width = cols * cell; cv.height = rows * cell;
+const g = cv.getContext('2d');
+g.fillStyle = '#0a1028'; g.fillRect(0, 0, cv.width, cv.height);
+items.forEach(([name, c], i) => {
+  const x = (i % cols) * cell + cell / 2, y = Math.floor(i / cols) * cell + cell / 2;
+  const s = (cell * 0.44) / Math.max(10, c.R);
+  g.save(); g.translate(x, y); g.scale(s, s); drawCrystal(g, c); g.restore();
+  g.fillStyle = '#9fb8e8'; g.fillText(name, x - cell / 2 + 8, y - cell / 2 + 14);
+});
+document.title = 'ready';
+</script></body></html>

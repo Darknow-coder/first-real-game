@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#070b1c" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Flocon — guide un cristal de glace à travers les nuages : chaque chute crée un flocon unique. Un jeu Darknow Games." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Flocon</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="preload" href="fonts/fraunces-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/nunito-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="game" aria-label="Flocon"></canvas>
+    <div id="hud" class="hud hidden" aria-live="polite"></div>
+    <div id="ui"></div>
+    <div id="toast" class="toast" role="status"></div>
+    <noscript>
+      <p class="noscript">Flocon a besoin de JavaScript pour fonctionner. / Flocon needs JavaScript to run.</p>
+    </noscript>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

@@ -12,7 +12,7 @@ export const BAND_TOP = 0.16;
 export const BAND_BOTTOM = 0.6;
 export const START_SY = 0.33;
 /** Height of each landing object above the snow (world units). */
-export const LANDING_H = { mitten: 118, scarf: 66, sleeve: 52, sled: 36, glass: 30 };
+export const LANDING_H = { mitten: 118, scarf: 66, sleeve: 52, sled: 40, glass: 46 };
 
 const SECTOR = Math.PI / 3;
 

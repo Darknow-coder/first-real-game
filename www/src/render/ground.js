@@ -391,6 +391,15 @@ export function drawLandingObject(g, kind, x, top, w, t, groundY) {
     default: {
       // A block of clear black ice cut from the frozen lake.
       const hgt = ground - top + 20;
+      // Side face for volume.
+      g.fillStyle = 'rgba(8,30,38,0.95)';
+      g.beginPath();
+      g.moveTo(x + w / 2, top + 2);
+      g.lineTo(x + w / 2 + 10, top + 8);
+      g.lineTo(x + w / 2 + 10, top + hgt);
+      g.lineTo(x + w / 2, top + hgt);
+      g.closePath();
+      g.fill();
       const grad = g.createLinearGradient(0, top, 0, top + hgt);
       grad.addColorStop(0, 'rgba(40,95,105,0.97)');
       grad.addColorStop(1, 'rgba(6,18,26,0.97)');

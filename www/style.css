@@ -1383,6 +1383,47 @@ button:focus-visible,
   line-height: 1.35;
 }
 
+/* ---------------------------------------------------------------- rotate */
+
+.rotate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #070b1c;
+  color: var(--ice);
+  font-weight: 800;
+  text-align: center;
+  padding: 24px;
+}
+
+.rotate svg {
+  width: 56px;
+  height: 56px;
+  animation: tilt 2.4s ease-in-out infinite;
+}
+
+@keyframes tilt {
+  0%,
+  30% {
+    transform: rotate(-90deg);
+  }
+  60%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  .rotate {
+    display: flex;
+  }
+}
+
 /* ----------------------------------------------------------------- toast */
 
 .toast {

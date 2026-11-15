@@ -35,7 +35,9 @@ function growthTable(d, theme) {
  */
 export function generateLevel(o) {
   const rng = new RNG(o.seed);
-  const d = clamp(o.difficulty ?? 0.3, 0, 1.4);
+  const d = clamp(o.difficulty ?? 0.3, 0, 3);
+  // Beyond 1, the "overdrive" keeps tightening the screws (endless mode).
+  const over = Math.max(0, d - 1);
   const theme = o.theme ?? rng.pick(THEMES);
   const length = Math.round(o.length ?? lerp(2800, 3600, Math.min(1, d)));
   const def = {
@@ -44,9 +46,9 @@ export function generateLevel(o) {
     index: 0,
     theme,
     length,
-    speed: Math.round(lerp(60, 76, Math.min(1, d))),
+    speed: Math.round(lerp(60, 76, Math.min(1, d)) + over * 12),
     startX: 180,
-    landing: { x: Math.round(rng.range(95, 265)), w: Math.round(lerp(115, 85, Math.min(1, d))), kind: LANDING_BY_THEME[theme] },
+    landing: { x: Math.round(rng.range(95, 265)), w: Math.round(Math.max(64, lerp(115, 85, Math.min(1, d)) - over * 18)), kind: LANDING_BY_THEME[theme] },
     objectives: [{ kind: 'land' }],
     target: null,
     zones: [],
@@ -84,15 +86,15 @@ export function generateLevel(o) {
 
   // Hazards scale with difficulty.
   const startH = 380;
-  def.hazards.push({ type: 'pellet', from: startH, to: length - 700, every: lerp(2.6, 0.85, Math.min(1, d)), x: d > 0.5 ? 'aim' : undefined });
-  if (d > 0.35) def.hazards.push({ type: 'hail', from: 800, to: length - 800, every: lerp(4, 1.8, Math.min(1, (d - 0.35) / 0.65)) });
+  def.hazards.push({ type: 'pellet', from: startH, to: length - 700, every: Math.max(0.45, lerp(2.6, 0.85, Math.min(1, d)) - over * 0.25), x: d > 0.5 ? 'aim' : undefined });
+  if (d > 0.35) def.hazards.push({ type: 'hail', from: 800, to: length - 800, every: Math.max(0.9, lerp(4, 1.8, Math.min(1, (d - 0.35) / 0.65)) - over * 0.6) });
   if (d > 0.55 && rng.chance(0.6)) def.hazards.push({ type: 'flake', from: 700, to: length - 900, every: rng.range(2.8, 4) });
   if (theme === 'forest' || rng.chance(0.25)) def.hazards.push({ type: 'bird', at: Math.round(length * rng.range(0.55, 0.8)), dir: rng.sign() });
   if (d > 0.25) {
     const n = d > 0.7 ? 2 : 1;
     for (let i = 0; i < n; i++) {
       const from = Math.round(rng.range(600, length - 1600));
-      def.winds.push({ from, to: from + Math.round(rng.range(600, 900)), dir: rng.sign(), power: Math.round(lerp(65, 125, Math.min(1, d))), gust: { period: rng.range(2.6, 4), duty: 0.5 } });
+      def.winds.push({ from, to: from + Math.round(rng.range(600, 900)), dir: rng.sign(), power: Math.round(lerp(65, 125, Math.min(1, d)) + over * 40), gust: { period: rng.range(2.6, 4), duty: 0.5 } });
     }
   }
   return def;
@@ -173,9 +175,14 @@ export function generateDaily(dateKey) {
   return { def, seed };
 }
 
-/** Difficulty of the n-th flake of an endless run (n starts at 0). */
+/** Beauty the n-th flake of an endless run must reach to keep going. */
+export function endlessQuota(n) {
+  return Math.round(250 + 55 * n);
+}
+
+/** Difficulty of the n-th flake of an endless run (n starts at 0): no cap. */
 export function endlessDifficulty(n) {
-  return Math.min(1.3, 0.12 + n * 0.11);
+  return 0.12 + n * 0.11;
 }
 
 export function generateEndless(runSeed, n) {

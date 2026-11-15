@@ -13,7 +13,7 @@ import { Crystal } from './sim/crystal.js';
 import { analyse, expectedMode, diameterMm } from './sim/classify.js';
 import { evaluateAll } from './sim/objectives.js';
 import { LEVEL_BY_ID, nextLevelId, levelsOfChapter } from './sim/levels.js';
-import { generateDaily, generateEndless } from './sim/generator.js';
+import { generateDaily, generateEndless, endlessQuota } from './sim/generator.js';
 import { Autopilot } from './sim/bot.js';
 import { drawPhoto } from './render/photo.js';
 import { makeCanvas } from './render/sprites.js';
@@ -84,6 +84,7 @@ class Game {
     this.autopilot = null;
     this.speed = Math.max(0.25, Math.min(8, Number(params.get('speed')) || 1));
     this.fps = { n: 0, t: 0, v: 60 };
+    this.perf = { slow: 0, frames: 0, t: 0 };
     this.applySettings();
     this.bind();
     if (DEBUG && params.get('unlock') === 'all') this.debugUnlockAll();
@@ -132,6 +133,12 @@ class Game {
     this.renderer.resize();
     this.input.unitsPerPx = 1 / this.renderer.scale;
     if (this.world) this.world.viewH = Math.max(560, this.renderer.viewH);
+    if (this.target) this.renderer.setTarget(this.target);
+    const rot = document.getElementById('rotate-text');
+    if (rot) rot.textContent = t('common.rotate');
+    // A phone turned sideways shows the "rotate" overlay: pause the fall.
+    const sideways = window.matchMedia?.('(orientation: landscape) and (max-height: 520px) and (pointer: coarse)').matches;
+    if (sideways && this.state === 'play') this.pause();
   }
 
   applySettings() {
@@ -329,8 +336,10 @@ class Game {
   nextEndlessFlake() {
     const e = this.endless;
     const { def, seed } = generateEndless(e.runSeed, e.n);
+    e.quota = endlessQuota(e.n);
+    def.objectives = [{ kind: 'land' }, { kind: 'beauty', n: e.quota }];
     this.beginWorld(def, seed, t('endless.flakeN', { n: e.n + 1 }));
-    this.hud.banner(t('endless.flakeN', { n: e.n + 1 }), e.n === 0 ? t('endless.title') : null, 1500);
+    this.hud.banner(t('endless.flakeN', { n: e.n + 1 }), t('endless.quota', { n: num(e.quota) }), 1800);
   }
 
   beginWorld(def, seed, title) {
@@ -340,7 +349,7 @@ class Game {
     this.world = new World(def, { seed, viewH: Math.max(560, this.renderer.viewH) });
     this.renderer.fx.clear();
     this.renderer.setTarget(this.target);
-    this.hud.setup({ title, objectives: this.mode === 'endless' ? [] : def.objectives, mode: this.mode });
+    this.hud.setup({ title, objectives: def.objectives, mode: this.mode });
     this.input.reset();
     this.input.enabled = true;
     this.state = 'play';
@@ -405,6 +414,7 @@ class Game {
     this.last = ts;
     dt = Math.min(0.05, Math.max(0, dt));
     if (DEBUG) this.tickFps(dt);
+    this.watchPerformance(dt);
     try {
       this.frame(dt);
     } catch (err) {
@@ -505,6 +515,25 @@ class Game {
     w.events.length = 0;
   }
 
+  /** Lower the rendering quality if the device cannot keep up. */
+  watchPerformance(dt) {
+    if (document.hidden || !['play', 'title', 'menu'].includes(this.state)) return;
+    const p = this.perf;
+    p.frames++;
+    if (dt > 0.03) p.slow++;
+    p.t += dt;
+    if (p.t >= 3) {
+      if (p.slow / p.frames > 0.5 && this.renderer.quality > 0 && !params.has('hq')) {
+        this.renderer.setQuality(this.renderer.quality - 1);
+        this.input.unitsPerPx = 1 / this.renderer.scale;
+        if (this.target) this.renderer.setTarget(this.target);
+      }
+      p.slow = 0;
+      p.frames = 0;
+      p.t = 0;
+    }
+  }
+
   tickFps(dt) {
     this.fps.n++;
     this.fps.t += dt;
@@ -567,9 +596,14 @@ class Game {
     const analysis = analyse(w.crystal, this.target);
     if (this.mode === 'endless') {
       const e = this.endless;
+      if (!e.best || analysis.beauty > e.best.analysis.beauty) e.best = { analysis, crystal: w.crystal, support: w.landing.kind, world: w };
+      if (analysis.beauty < e.quota) {
+        // The photographer only keeps flakes that are beautiful enough.
+        this.finishEndless('quota', analysis);
+        return;
+      }
       e.score += analysis.beauty;
       e.landed++;
-      if (!e.best || analysis.beauty > e.best.analysis.beauty) e.best = { analysis, crystal: w.crystal, support: w.landing.kind, world: w };
       const isNew = !this.store.data.types[analysis.type];
       if (isNew) {
         this.recordFlake(analysis);
@@ -688,7 +722,7 @@ class Game {
     this.screens.show(S.failScreen(this, { reason: w.reason, buttons: S.buttons(rows) }));
   }
 
-  finishEndless(reason) {
+  finishEndless(reason, lastAnalysis = null) {
     const e = this.endless;
     const rec = this.store.data.endless;
     const isRecord = e.score > rec.best;
@@ -716,7 +750,8 @@ class Game {
       { label: t('res.retry'), cls: 'primary', icon: 'retry', onclick: () => this.startEndless() },
       { label: t('res.menu'), cls: 'ghost', icon: 'home', onclick: () => this.goMenu() },
     ]);
-    const items = [h('h2', { class: 'fail-title' }, t('endless.over')), h('p', { class: 'fail-tip' }, t(`res.failed.${reason}`))];
+    const why = reason === 'quota' && lastAnalysis ? `${t('res.failed.quota')} (${num(lastAnalysis.beauty)} / ${num(e.quota)})` : t(`res.failed.${reason}`);
+    const items = [h('h2', { class: 'fail-title' }, t('endless.over')), h('p', { class: 'fail-tip' }, why)];
     if (e.best) items.push(S.photoBlock(e.best.crystal, this.supportFor({ support: e.best.support }), { serial: entry ? t('res.unique', { id: entry.id }) : null }));
     items.push(statsEl);
     if (isRecord && e.score > 0) items.push(h('div', { class: 'center-text', style: { color: 'var(--gold)', fontWeight: 800 } }, t('res.newRecord')));

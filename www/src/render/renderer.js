@@ -82,13 +82,26 @@ export class Renderer {
     this.flash = 0;
     this.shakeAmp = 0;
     this.time = 0;
+    this.setQuality(2, false);
     this.resize();
+  }
+
+  /**
+   * Quality levels (lowered automatically on slow devices):
+   * 2 = full, 1 = reduced resolution, 0 = low resolution and fewer particles.
+   */
+  setQuality(q, apply = true) {
+    this.quality = Math.max(0, Math.min(2, q));
+    this.maxDpr = [1, 1.5, 2][this.quality];
+    this.glowScale = [0.3, 0.33, 0.4][this.quality];
+    this.particleScale = [0.55, 0.8, 1][this.quality];
+    if (apply) this.resize();
   }
 
   resize() {
     const cssW = Math.max(1, window.innerWidth);
     const cssH = Math.max(1, window.innerHeight);
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.dpr = Math.min(window.devicePixelRatio || 1, this.maxDpr);
     this.canvas.width = Math.round(cssW * this.dpr);
     this.canvas.height = Math.round(cssH * this.dpr);
     this.canvas.style.width = `${cssW}px`;
@@ -113,16 +126,10 @@ export class Renderer {
     for (let i = 0; i < 90; i++) this.snowBack.push({ x: rng.range(0, this.viewW), y: rng.range(0, this.viewH), s: rng.range(0.5, 1.3), ph: rng.range(0, TAU), k: rng.range(0.25, 0.5) });
     this.snowFront = [];
     for (let i = 0; i < 16; i++) this.snowFront.push({ x: rng.range(0, this.viewW), y: rng.range(0, this.viewH), s: rng.range(2, 4.5), ph: rng.range(0, TAU), k: rng.range(1.4, 1.8) });
-    // Vignette.
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    this.vignette = makeCanvas(w, h);
-    const g = this.vignette.getContext('2d');
-    const grad = g.createRadialGradient(w / 2, h * 0.42, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
-    grad.addColorStop(0, 'rgba(0,0,8,0)');
-    grad.addColorStop(1, 'rgba(0,0,8,0.55)');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, w, h);
+    // Soft additive layer (clouds, aurora) rendered at reduced resolution:
+    // these shapes are blurry anyway and this saves a lot of fill-rate.
+    this.glow = makeCanvas(this.canvas.width * this.glowScale, this.canvas.height * this.glowScale);
+    this.glowCtx = this.glow.getContext('2d');
     this.skyCache = null;
     this.auroraSprites = null;
   }
@@ -149,25 +156,33 @@ export class Renderer {
     const W = this.canvas.width;
     const H = this.canvas.height;
     if (!this.skyCache || this.skyCache.key !== themeKey) {
-      const c = makeCanvas(4, 256);
+      // Sky gradient with the vignette baked in, at half resolution.
+      const c = makeCanvas(Math.max(8, W / 2), Math.max(8, H / 2));
       const cg = c.getContext('2d');
-      const grad = cg.createLinearGradient(0, 0, 0, 256);
+      const grad = cg.createLinearGradient(0, 0, 0, c.height);
       grad.addColorStop(0, th.sky[0]);
       grad.addColorStop(0.55, th.sky[1]);
       grad.addColorStop(1, th.sky[2]);
       cg.fillStyle = grad;
-      cg.fillRect(0, 0, 4, 256);
+      cg.fillRect(0, 0, c.width, c.height);
+      const v = cg.createRadialGradient(c.width / 2, c.height * 0.42, Math.min(c.width, c.height) * 0.35, c.width / 2, c.height / 2, Math.max(c.width, c.height) * 0.75);
+      v.addColorStop(0, 'rgba(0,0,8,0)');
+      v.addColorStop(1, 'rgba(0,0,8,0.5)');
+      cg.fillStyle = v;
+      cg.fillRect(0, 0, c.width, c.height);
       this.skyCache = { key: themeKey, canvas: c };
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'copy';
     g.drawImage(this.skyCache.canvas, 0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
     // Horizon glow when approaching the ground.
     if (rise > 0) {
       const grad = g.createLinearGradient(0, H * 0.45, 0, H);
       grad.addColorStop(0, rgba(th.horizon, 0));
       grad.addColorStop(1, rgba(th.horizon, 0.22 * rise));
       g.fillStyle = grad;
-      g.fillRect(0, 0, W, H);
+      g.fillRect(0, H * 0.45, W, H * 0.55);
     }
     const s = this.ppu;
     // Stars.
@@ -216,12 +231,10 @@ export class Renderer {
         }
       }
     }
-    if (th.aurora > 0) this.drawAurora(th.aurora, camY);
   }
 
-  drawAurora(strength, camY) {
-    const g = this.ctx;
-    const s = this.ppu;
+  /** Aurora curtains (screen space) into context `g` at `s` px per unit. */
+  drawAurora(g, s, strength, camY) {
     if (!this.auroraSprites) {
       const mk = (rgb) => {
         const c = makeCanvas(4, 128);
@@ -246,15 +259,16 @@ export class Renderer {
       [0.21, 2, 70, 0.45],
     ];
     const lift = camY * 0.01;
+    const step = this.quality === 0 ? 9 : 5;
     for (const [by, si, hgt, alpha] of ribbons) {
       const spr = this.auroraSprites[si];
-      for (let x = -10; x < this.viewW + 10; x += 5) {
+      for (let x = -10; x < this.viewW + 10; x += step) {
         const y = by * this.viewH - lift + Math.sin(x * 0.011 + t * 0.25 + si * 2) * 26 + Math.sin(x * 0.033 + t * 0.4) * 9;
         const hh = hgt * (0.7 + 0.3 * Math.sin(x * 0.02 + t * 0.6 + si));
         const a = alpha * strength * (0.55 + 0.45 * Math.sin(x * 0.05 + t * 0.9 + si * 3));
         if (a <= 0.02) continue;
         g.globalAlpha = a * 0.55;
-        g.drawImage(spr, x * s, (y - hh) * s, 6 * s, hh * s);
+        g.drawImage(spr, x * s, (y - hh) * s, (step + 1) * s, hh * s);
       }
     }
     g.restore();
@@ -264,7 +278,7 @@ export class Renderer {
     const g = this.ctx;
     const s = this.ppu;
     const t = this.time;
-    const n = Math.round(layer.length * Math.min(1, density));
+    const n = Math.round(layer.length * Math.min(1, density) * this.particleScale);
     const H = this.viewH + 20;
     for (let i = 0; i < n; i++) {
       const p = layer[i];
@@ -292,13 +306,12 @@ export class Renderer {
     this.ctx.setTransform(p, 0, 0, p, (this.offX + sx) * p, (-camY + sy) * p);
   }
 
-  drawZones(world, opts) {
-    const g = this.ctx;
+  /** Soft cloud bodies, drawn into the low-resolution glow layer. */
+  drawClouds(g, world) {
     const camY = world.camY;
     const top = camY - 60;
     const bottom = camY + this.viewH + 60;
     const t = this.time;
-    const fy = world.flakeY;
     g.save();
     g.globalCompositeOperation = 'lighter';
     for (const z of world.zones) {
@@ -329,8 +342,31 @@ export class Renderer {
         }
       }
     }
-    g.globalAlpha = 1;
+    g.restore();
+  }
 
+  /** Begin the glow layer; `fn(ctx)` draws into it; then it is added on top. */
+  glowPass(fn) {
+    const gg = this.glowCtx;
+    gg.setTransform(1, 0, 0, 1, 0, 0);
+    gg.clearRect(0, 0, this.glow.width, this.glow.height);
+    fn(gg, this.ppu * this.glowScale);
+    const g = this.ctx;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'lighter';
+    g.drawImage(this.glow, 0, 0, this.canvas.width, this.canvas.height);
+    g.globalCompositeOperation = 'source-over';
+  }
+
+  drawZones(world, opts) {
+    const g = this.ctx;
+    const camY = world.camY;
+    const top = camY - 60;
+    const bottom = camY + this.viewH + 60;
+    const t = this.time;
+    const fy = world.flakeY;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
     // Motes.
     for (const m of world.motes) {
       if (m.y < top || m.y > bottom) continue;
@@ -676,6 +712,11 @@ export class Renderer {
 
     const sx = this.shakeAmp > 0 && !opts.reduced ? (Math.random() - 0.5) * this.shakeAmp * 5 : 0;
     const sy = this.shakeAmp > 0 && !opts.reduced ? (Math.random() - 0.5) * this.shakeAmp * 5 : 0;
+    this.glowPass((gg, s) => {
+      if (th.aurora > 0) this.drawAurora(gg, s, th.aurora, camY);
+      gg.setTransform(s, 0, 0, s, (this.offX + sx) * s, (-camY + sy) * s);
+      this.drawClouds(gg, world);
+    });
     this.worldTransform(camY, sx, sy);
     // Darken outside the playfield on wide screens.
     if (this.offX > 4) {
@@ -694,7 +735,6 @@ export class Renderer {
     g.setTransform(1, 0, 0, 1, 0, 0);
     this.drawSnow(this.snowFront, camY, th.snow, world.windNow);
     this.drawWind();
-    g.drawImage(this.vignette, 0, 0);
     if (world.zoneKey === 'redoux') {
       g.fillStyle = `rgba(255,120,60,${(0.07 + 0.04 * Math.sin(this.time * 6)).toFixed(3)})`;
       g.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -712,6 +752,7 @@ export class Renderer {
     const th = THEMES[themeKey] || THEMES.peaks;
     const camY = this.time * 14;
     this.drawSky(themeKey, camY, 0.35, !!opts.noMoon);
+    if (th.aurora > 0) this.glowPass((gg, s) => this.drawAurora(gg, s, th.aurora, camY));
     g.setTransform(1, 0, 0, 1, 0, 0);
     this.drawSnow(this.snowBack, camY, th.snow, 0);
     if (crystal) {
@@ -735,7 +776,6 @@ export class Renderer {
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
     this.drawSnow(this.snowFront, camY, th.snow * 0.7, 0);
-    g.drawImage(this.vignette, 0, 0);
   }
 
   // -------------------------------------------------------------- events

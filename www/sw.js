@@ -1,5 +1,6 @@
 // Offline cache for the installable web version (PWA).
-const VERSION = 'flocon-v1';
+// Bump VERSION whenever a file changes so players receive the update.
+const VERSION = 'flocon-v2';
 const ASSETS = [
   './',
   'index.html',
@@ -8,6 +9,7 @@ const ASSETS = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
   'fonts/fraunces-latin-600-normal.woff2',
   'fonts/fraunces-latin-400-italic.woff2',
   'fonts/nunito-latin-400-normal.woff2',

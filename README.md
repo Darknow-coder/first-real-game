@@ -75,6 +75,9 @@ npm run e2e
 
 Test de bout en bout dans Chromium (émulation mobile) via Playwright. Il nécessite `npx playwright install chromium` et un serveur lancé avec `npm start`.
 
+Mise en ligne : après toute modification d'un fichier, incrémenter `VERSION`
+dans `www/sw.js`. Sinon, les joueurs ayant installé la PWA garderont l'ancienne version en cache.
+
 ## Transformer en application Android
 
 Le jeu est déjà prêt pour [Capacitor](https://capacitorjs.com/) (gratuit et open source) :

@@ -315,6 +315,7 @@ class Game {
     this.levelId = id;
     this.target = def.target ? Crystal.fromRecipe(7, def.target) : null;
     this.beginWorld(def, hashString(`level-${id}`), t(`lvl.${id}`));
+    this.hud.banner(t(`lvl.${id}`), `${t(`ch.${def.chapter}`)} · ${id}`, 1900);
   }
 
   startDaily() {
@@ -829,7 +830,12 @@ class Game {
 window.addEventListener('DOMContentLoaded', () => {
   const game = new Game();
   window.__flocon = game;
-  // Android (Capacitor) hardware back button can call window.__flocon.onBack().
+  // Android (Capacitor): hardware back button, and pause when the app is hidden.
+  const App = window.Capacitor?.Plugins?.App;
+  if (App?.addListener) {
+    App.addListener('backButton', () => game.onBack());
+    App.addListener('pause', () => game.state === 'play' && game.pause());
+  }
 });
 
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !DEBUG) {

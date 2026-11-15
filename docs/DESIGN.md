@@ -82,6 +82,11 @@ fonte, au moins trois types de croissance).
   silhouettes de montagnes, sapins et maisons, neige en parallaxe à trois couches, nuages en
   volutes additives, cristaux vectoriels mis en cache.
 - Typographie : Fraunces (titres, élégante) et Nunito (interface, lisible et ronde).
+- Nuages texturés par bruit fractal, avec un style par type : brume cotonneuse, filaments de grand
+  froid, colonne de chaleur du redoux, rideau d'aurore, spirale du tourbillon. Bancs de brume
+  lointains en parallaxe, reflets scintillants sur les branches du cristal.
+- Menus et bannières de chapitre dessinés avec un paysage nocturne (montagnes, sapins, chalets
+  éclairés). Le décor du menu suit le chapitre en cours.
 - La photo finale simule une macrophotographie sur laine sombre, comme les vrais photographes de flocons.
 
 ## Son

@@ -89,10 +89,10 @@ function pine(g, x, base, h, color, snow) {
   }
 }
 
-function house(g, x, base, w, h, color, roof, win, t, seed) {
+function house(g, x, base, w, h, color, roof, win, t, seed, depth = 40) {
   const rng = new RNG(seed);
   g.fillStyle = color;
-  g.fillRect(x - w / 2, base - h, w, h + 40);
+  g.fillRect(x - w / 2, base - h, w, h + depth);
   // Roof with snow.
   g.fillStyle = roof;
   g.beginPath();
@@ -221,6 +221,89 @@ export function drawSnowGround(g, theme, groundY, x0, x1, t) {
     g.fillStyle = `rgba(255,255,255,${((a - 0.6) * 2).toFixed(2)})`;
     g.fillRect(x, y, 1.2, 1.2);
   }
+}
+
+// ------------------------------------------------------------- panorama
+
+/**
+ * Night landscape for menus and chapter banners, drawn in "units" (the caller
+ * sets the transform). `horizon` is where the mountains stand; everything
+ * below is snow. Width `w`, total height `h`.
+ */
+export function drawPanorama(g, theme, themeKey, w, h, horizon, t = 0, seed = 1) {
+  const rng = new RNG(seed * 97 + themeKey.length);
+  const glows = [];
+  // Distant range.
+  mountains(g, -30, w + 30, horizon + 10, 150, theme.far, 'rgba(205,220,250,0.45)', seed * 3 + 1);
+  if (themeKey === 'aurora') {
+    const grad = g.createLinearGradient(0, horizon - 10, 0, horizon + 30);
+    grad.addColorStop(0, 'rgba(90,220,170,0.28)');
+    grad.addColorStop(1, 'rgba(10,30,40,0.0)');
+    g.fillStyle = grad;
+    g.fillRect(-30, horizon - 10, w + 60, 40);
+  }
+  mountains(g, -30, w + 30, horizon + 34, 85, theme.near, 'rgba(220,232,252,0.55)', seed * 3 + 2);
+  // Rolling snowy hills, shaded for the night.
+  const hill = (base, amp, phase, top, bottom) => {
+    const grad = g.createLinearGradient(0, base - amp, 0, h);
+    grad.addColorStop(0, top);
+    grad.addColorStop(1, bottom);
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(-10, h + 10);
+    for (let x = -10; x <= w + 10; x += 6) g.lineTo(x, base + Math.sin(x * 0.013 + phase) * amp + Math.sin(x * 0.041 + phase * 2) * amp * 0.3);
+    g.lineTo(w + 10, h + 10);
+    g.closePath();
+    g.fill();
+    return (x) => base + Math.sin(x * 0.013 + phase) * amp + Math.sin(x * 0.041 + phase * 2) * amp * 0.3;
+  };
+  const [snowTop, snowBottom] = theme.snowNight || ['#3b4c86', '#121a3a'];
+  const back = hill(horizon + 48, 14, seed, snowTop, snowBottom);
+  // Pines and houses on the first hill.
+  const treeColor = themeKey === 'forest' ? '#06140f' : theme.near;
+  for (let x = -10; x < w + 10; x += rng.range(themeKey === 'forest' ? 12 : 26, themeKey === 'forest' ? 22 : 60)) {
+    if (rng.chance(themeKey === 'village' ? 0.35 : 0.85)) pine(g, x, back(x) + 4, rng.range(34, themeKey === 'forest' ? 80 : 58), treeColor, 'rgba(225,238,255,0.55)');
+  }
+  const houses = themeKey === 'village' ? 6 : themeKey === 'blizzard' ? 0 : 1;
+  const win = theme.windows || [255, 200, 130];
+  for (let i = 0; i < houses; i++) {
+    const x = houses === 1 ? w * rng.range(0.62, 0.8) : (w * (i + 0.5)) / houses + rng.range(-12, 12);
+    const hw = rng.range(26, 38);
+    const hh = rng.range(20, 30);
+    const base = back(x) + 6;
+    house(g, x, base, hw, hh, theme.near, '#25193a', win, t, Math.round(x), 8);
+    glows.push([x, base - hh * 0.6, hw * 1.4]);
+  }
+  if (themeKey === 'blizzard') {
+    g.strokeStyle = 'rgba(30,24,24,0.7)';
+    g.lineWidth = 2;
+    for (let x = 8; x < w; x += 22) {
+      g.beginPath();
+      g.moveTo(x, back(x) + 2);
+      g.lineTo(x, back(x) - 16);
+      g.stroke();
+    }
+  }
+  // Foreground drift.
+  hill(horizon + 96, 18, seed + 2.1, snowTop, snowBottom);
+  // Warm window glows.
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  for (const [x, y, r] of glows) {
+    const grad = g.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, `rgba(${win[0]},${win[1]},${win[2]},0.35)`);
+    grad.addColorStop(1, `rgba(${win[0]},${win[1]},${win[2]},0)`);
+    g.fillStyle = grad;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  // Snow sparkles.
+  for (let i = 0; i < 60; i++) {
+    const x = rng.range(0, w);
+    const y = rng.range(horizon + 60, h);
+    g.fillStyle = `rgba(230,240,255,${rng.range(0.15, 0.6).toFixed(2)})`;
+    g.fillRect(x, y, 1, 1);
+  }
+  g.restore();
 }
 
 // ------------------------------------------------------- landing objects

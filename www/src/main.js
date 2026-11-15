@@ -17,6 +17,7 @@ import { generateDaily, generateEndless, endlessQuota } from './sim/generator.js
 import { Autopilot } from './sim/bot.js';
 import { drawPhoto } from './render/photo.js';
 import { makeCanvas } from './render/sprites.js';
+import { prewarmClouds, CLOUD_TYPES } from './render/clouds.js';
 
 const STEP = 1 / 60;
 const params = new URLSearchParams(location.search);
@@ -91,6 +92,8 @@ class Game {
     this.goTitle();
     if (DEBUG && params.get('level')) this.startLevel(params.get('level'));
     requestAnimationFrame((ts) => this.loop(ts));
+    // Generate cloud textures in small slices while the title screen shows.
+    setTimeout(() => prewarmClouds(CLOUD_TYPES), 600);
   }
 
   // -------------------------------------------------------------- setup
@@ -201,7 +204,20 @@ class Game {
     this.audio.setAmbience(0, 0, 0.03);
   }
 
+  /** The next night to play (or null when the campaign is complete). */
+  nextLevelId() {
+    for (const l of Object.values(LEVEL_BY_ID)) if (this.store.isLevelUnlocked(l.id) && !this.store.level(l.id).done) return l.id;
+    return null;
+  }
+
+  /** Menus take the look of the chapter the player is in. */
+  progressTheme() {
+    const id = this.nextLevelId();
+    return id ? LEVEL_BY_ID[id].theme : 'aurora';
+  }
+
   goTitle() {
+    this.menuTheme = this.progressTheme();
     this.setMenuState('title');
     this.screens.show(S.titleScreen(this));
   }
@@ -213,6 +229,7 @@ class Game {
       return;
     }
     this.setMenuState('menu');
+    this.menuTheme = this.progressTheme();
     this.refreshMenuCrystal();
     this.screens.show(S.menuScreen(this));
   }
@@ -474,10 +491,11 @@ class Game {
       if (this.state === 'title') this.grower.update(dt);
       const crystal = this.state === 'title' ? this.grower.crystal : this.menuCrystal || this.grower.crystal;
       if (this.state !== 'title' && this.grower.i < this.grower.recipe.length) this.grower.update(dt * 4);
-      const y = this.state === 'title' ? 0.36 : this.state === 'menu' ? 0.27 : 0.5;
-      const size = this.state === 'title' ? 112 : 96;
+      const y = this.state === 'title' ? 0.31 : this.state === 'menu' ? 0.26 : 0.5;
+      const size = this.state === 'title' ? 108 : 90;
       const showCrystal = ['title', 'menu'].includes(this.state);
-      this.renderer.renderMenu(dt, this.menuTheme, showCrystal ? crystal : null, { y, size, noMoon: !showCrystal });
+      const horizon = this.state === 'title' ? 0.6 : this.state === 'menu' ? 0.5 : 0;
+      this.renderer.renderMenu(dt, this.menuTheme, showCrystal ? crystal : null, { y, size, noMoon: !showCrystal, horizon });
     }
   }
 
@@ -488,7 +506,14 @@ class Game {
       labelFor: st.labels ? (type) => t(`zone.short.${type}`) : null,
       expected: this.target && w.status === 'play' ? expectedMode(w.crystal, this.target) : null,
       reduced: st.reduced,
+      // Landing: the camera slowly closes in on the flake before the photo.
+      zoom: this.state === 'ending' && w.status === 'landed' && this.mode !== 'endless' && !st.reduced ? 1 + 0.75 * this.endEase() : 0,
     });
+  }
+
+  endEase() {
+    const k = Math.min(1, Math.max(0, 1 - this.endTimer / 1.15));
+    return k * k * (3 - 2 * k);
   }
 
   processEvents() {
@@ -697,6 +722,8 @@ class Game {
     this.hud.hide();
     this.state = 'result';
     this.input.enabled = false;
+    // A chime for each star as it pops in.
+    objectives.forEach((o, i) => o.done && setTimeout(() => this.audio.shard(i + 1, 3), 380 + i * 320));
     this.screens.show(
       S.resultScreen(this, {
         crystal: w.crystal,

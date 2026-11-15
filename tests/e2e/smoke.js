@@ -94,10 +94,13 @@ await check('menus, settings and language switch', async () => {
   const page = await newPage('?reset&debug&unlock=all');
   await page.evaluate(() => window.__flocon.goMenu());
   await page.waitForSelector('.menu-screen.in');
-  assert((await page.locator('.menu-screen .card').count()) === 4, 'four menu entries');
-  await page.evaluate(() => window.__flocon.goCampaign());
+  assert((await page.locator('.menu-screen .cta').count()) === 1, 'continue button');
+  assert((await page.locator('.menu-screen .tile').count()) === 3, 'three mode tiles');
+  // Campaign complete: the main button opens the map of nights.
+  await page.locator('.menu-screen .cta').click();
   await page.waitForSelector('.chapter');
-  assert((await page.locator('.night').count()) === 30, '30 nights listed');
+  await page.waitForTimeout(500);
+  assert((await page.locator('.screen.in .night').count()) === 30, '30 nights listed');
   await page.evaluate(() => window.__flocon.goSettings());
   await page.getByRole('button', { name: 'EN', exact: true }).click();
   await page.waitForSelector('text=Settings');

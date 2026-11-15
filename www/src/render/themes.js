@@ -10,6 +10,7 @@ export const THEMES = {
     far: '#18224a',
     near: '#0f1734',
     ground: ['#e9f0fb', '#b7c7e6'],
+    snowNight: ['#3b4c86', '#121a3a'],
   },
   forest: {
     sky: ['#03080d', '#081a22', '#123441'],
@@ -21,6 +22,7 @@ export const THEMES = {
     far: '#0b201f',
     near: '#05110f',
     ground: ['#e4eef2', '#a9c2c8'],
+    snowNight: ['#2f5a63', '#0b1d22'],
   },
   village: {
     sky: ['#07061a', '#181333', '#3a2650'],
@@ -33,6 +35,7 @@ export const THEMES = {
     near: '#120d22',
     ground: ['#efeaf4', '#c1b6d3'],
     windows: [255, 196, 120],
+    snowNight: ['#55467a', '#1a1430'],
   },
   blizzard: {
     sky: ['#0b1019', '#182231', '#2c3a4d'],
@@ -44,6 +47,7 @@ export const THEMES = {
     far: '#223043',
     near: '#18222f',
     ground: ['#e3e9f0', '#aab7c7'],
+    snowNight: ['#4c5b74', '#19222f'],
   },
   aurora: {
     sky: ['#02070e', '#051520', '#08252c'],
@@ -55,6 +59,7 @@ export const THEMES = {
     far: '#0a1d24',
     near: '#06121a',
     ground: ['#dfeef0', '#9cbcc4'],
+    snowNight: ['#2d5e64', '#081a20'],
   },
 };
 

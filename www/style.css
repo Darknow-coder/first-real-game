@@ -392,9 +392,255 @@ button:focus-visible,
 .menu-head {
   width: 100%;
   max-width: 440px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.menu-head .pill {
+  justify-self: start;
+}
+
+.menu-head .icon-btn {
+  justify-self: end;
+}
+
+.menu-head .logo.small {
+  font-size: 30px;
+  letter-spacing: 0.04em;
+}
+
+.menu-panel {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: rise 0.6s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+.cta-row {
+  display: flex;
+  gap: 10px;
+}
+
+.cta {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  text-align: left;
+  color: #0b1530;
+  background: linear-gradient(160deg, #f4f8ff 0%, #c9dcff 55%, #a9c4ff 100%);
+  box-shadow: 0 10px 34px rgba(120, 165, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease;
+}
+
+.cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.65) 45%, transparent 60%);
+  transform: translateX(-120%);
+  animation: sheen 4.5s ease-in-out 1.2s infinite;
+}
+
+@keyframes sheen {
+  0%,
+  70% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.cta:active {
+  transform: scale(0.98);
+}
+
+.cta-play {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #0f1b3d;
+  color: #eaf2ff;
+  flex: none;
+  box-shadow: 0 4px 14px rgba(15, 27, 61, 0.4);
+}
+
+.cta-play svg {
+  width: 22px;
+  height: 22px;
+  margin-left: 3px;
+}
+
+.cta-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cta-t1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.05;
+}
+
+.cta-t2 {
+  font-weight: 800;
+  font-size: 13px;
+  opacity: 0.7;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cta-side {
+  width: 74px;
+  flex: none;
+  border-radius: 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cta-side svg {
+  width: 24px;
+  height: 24px;
+}
+
+.cta-side-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.cta-side-stars svg {
+  width: 13px;
+  height: 13px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 6px 12px;
+  border-radius: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.15s ease;
+}
+
+.tile:active {
+  transform: scale(0.96);
+}
+
+.tile-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-bottom: 2px;
+}
+
+.tile-ic svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tile-daily .tile-ic {
+  background: radial-gradient(circle, rgba(255, 211, 138, 0.35), rgba(255, 211, 138, 0.08));
+  color: var(--gold);
+  box-shadow: 0 0 18px rgba(255, 211, 138, 0.25);
+}
+
+.tile-storm .tile-ic {
+  background: radial-gradient(circle, rgba(150, 200, 255, 0.35), rgba(150, 200, 255, 0.08));
+  color: #bfe0ff;
+  box-shadow: 0 0 18px rgba(150, 200, 255, 0.25);
+}
+
+.tile-album .tile-ic {
+  background: radial-gradient(circle, rgba(190, 150, 255, 0.35), rgba(190, 150, 255, 0.08));
+  color: #d9c6ff;
+  box-shadow: 0 0 18px rgba(190, 150, 255, 0.25);
+}
+
+.tile-t1 {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.tile-t2 {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tile-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #2a1a05;
+}
+
+.tile.locked {
+  opacity: 0.55;
+}
+
+.tile-lock {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  color: var(--muted);
+}
+
+.tile-lock svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* --------------------------------------------------------------- buttons */
@@ -472,6 +718,7 @@ button:focus-visible,
 }
 
 .chapter {
+  flex: none;
   border-radius: 22px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -480,12 +727,34 @@ button:focus-visible,
 }
 
 .chapter .banner {
-  height: 92px;
+  height: 120px;
+  overflow: hidden;
   padding: 14px 18px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   position: relative;
+}
+
+.banner-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chapter .banner > div {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+
+.chapter .banner > .stars {
+  position: absolute;
+}
+
+.chapter.is-locked .banner-art {
+  filter: grayscale(0.7) brightness(0.6);
 }
 
 .chapter .banner .num {
@@ -940,6 +1209,49 @@ button:focus-visible,
 
 .result {
   justify-content: center;
+}
+
+.big-stars {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: -2px;
+}
+
+.big-star {
+  display: inline-flex;
+  color: rgba(190, 210, 245, 0.35);
+  transform: scale(0);
+  animation: starpop 0.55s cubic-bezier(0.2, 1.7, 0.4, 1) forwards;
+}
+
+.big-star svg {
+  width: 42px;
+  height: 42px;
+}
+
+.big-star.s1 svg {
+  width: 54px;
+  height: 54px;
+}
+
+.big-star.s1 {
+  margin-bottom: 8px;
+}
+
+.big-star.on {
+  color: var(--gold);
+  filter: drop-shadow(0 0 12px rgba(255, 211, 138, 0.7));
+}
+
+@keyframes starpop {
+  0% {
+    transform: scale(0) rotate(-40deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
 }
 
 .photo-wrap {

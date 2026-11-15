@@ -4,8 +4,12 @@ import { ZONES } from '../sim/zones.js';
 import { WORLD_W } from '../sim/world.js';
 import { CrystalSprite, drawCrystal, crystalExtent } from './crystalRender.js';
 import { cloudSprite, glowSprite, hexSprite, sparkleSprite, makeCanvas, rgba } from './sprites.js';
-import { drawBackdrop, drawSnowGround, drawLandingObject, drawLandingHint, snowLine } from './ground.js';
+import { drawBackdrop, drawSnowGround, drawLandingObject, drawLandingHint, snowLine, drawPanorama } from './ground.js';
 import { FX } from './fx.js';
+import { cloudTexture } from './clouds.js';
+
+// How cloud textures move inside each cloud: spin (rad/s) or gentle sway.
+const CLOUD_MOTION = { brume: [0.035, 0], sec: [0.02, 0], givre: [0.05, 0], tourbillon: [0.7, 0], froid: [0, 0.12], aurore: [0, 0.1], redoux: [0, 0.08] };
 import { RNG } from '../core/rng.js';
 import { clamp } from '../core/math.js';
 
@@ -77,6 +81,7 @@ export class Renderer {
       pellet: pelletSprite(false),
       hail: pelletSprite(true),
       shard: sparkleSprite([255, 214, 140], 64),
+      glint: sparkleSprite([210, 230, 255], 64),
     };
     this.windStreaks = [];
     this.flash = 0;
@@ -124,6 +129,11 @@ export class Renderer {
     }
     this.snowBack = [];
     for (let i = 0; i < 90; i++) this.snowBack.push({ x: rng.range(0, this.viewW), y: rng.range(0, this.viewH), s: rng.range(0.5, 1.3), ph: rng.range(0, TAU), k: rng.range(0.25, 0.5) });
+    // Distant moonlit mist banks drifting by (parallax depth during the fall).
+    this.mist = [];
+    for (let i = 0; i < 7; i++) {
+      this.mist.push({ x: rng.range(-60, this.viewW + 60), y: rng.range(0, this.viewH * 2.2), w: rng.range(220, 360), h: rng.range(70, 130), v: i % 2, k: rng.range(0.25, 0.45), a: rng.range(0.1, 0.2) });
+    }
     this.snowFront = [];
     for (let i = 0; i < 16; i++) this.snowFront.push({ x: rng.range(0, this.viewW), y: rng.range(0, this.viewH), s: rng.range(2, 4.5), ph: rng.range(0, TAU), k: rng.range(1.4, 1.8) });
     // Soft additive layer (clouds, aurora) rendered at reduced resolution:
@@ -302,8 +312,21 @@ export class Renderer {
   // ---------------------------------------------------------- world layer
 
   worldTransform(camY, sx = 0, sy = 0) {
-    const p = this.ppu;
-    this.ctx.setTransform(p, 0, 0, p, (this.offX + sx) * p, (-camY + sy) * p);
+    this.worldMatrix(this.ctx, this.ppu, camY, sx, sy);
+  }
+
+  /** World -> screen transform at `p` px/unit, with optional zoom on a focus point. */
+  worldMatrix(g, p, camY, sx = 0, sy = 0) {
+    const z = this.zoom || 1;
+    if (z === 1 || !this.focus) {
+      g.setTransform(p, 0, 0, p, (this.offX + sx) * p, (-camY + sy) * p);
+      return;
+    }
+    const fx = this.focus.x;
+    const fy = this.focus.y;
+    const X0 = (this.offX + fx + sx) * p;
+    const Y0 = (fy - camY + sy) * p;
+    g.setTransform(p * z, 0, 0, p * z, X0 - fx * p * z, Y0 - fy * p * z);
   }
 
   /** Soft cloud bodies, drawn into the low-resolution glow layer. */
@@ -317,14 +340,23 @@ export class Renderer {
     for (const z of world.zones) {
       if (z.y + z.ry < top || z.y - z.ry > bottom) continue;
       const Z = ZONES[z.type];
-      const spr = cloudSprite(Z.rgb);
-      const base = z.type === 'redoux' ? 0.75 : 0.62;
-      for (let i = 0; i < 3; i++) {
-        const ox = Math.sin(z.id * 3.1 + i * 2.1 + t * 0.12) * z.rx * 0.16;
-        const oy = Math.cos(z.id * 1.7 + i * 2.9 + t * 0.1) * z.ry * 0.14;
-        const k = 0.86 + 0.08 * Math.sin(i * 1.3 + z.id);
-        g.globalAlpha = base * (i === 0 ? 1 : 0.6);
-        g.drawImage(spr, z.cx + ox - z.rx * k, z.y + oy - z.ry * k, z.rx * 2 * k, z.ry * 2 * k);
+      // Soft body showing the cloud's extent...
+      g.globalAlpha = z.type === 'redoux' ? 0.45 : 0.3;
+      g.drawImage(cloudSprite(Z.rgb), z.cx - z.rx, z.y - z.ry, z.rx * 2, z.ry * 2);
+      // ...and two noisy layers drifting against each other for texture.
+      const [spin, sway] = CLOUD_MOTION[z.type] || [0.03, 0];
+      const layers = this.quality === 2 ? 2 : 1;
+      for (let i = 0; i < layers; i++) {
+        const tex = cloudTexture(z.type, (z.id + i) % 2);
+        const dir = i === 0 ? 1 : -1;
+        const ang = z.phase * 2 + dir * (spin * t + sway * Math.sin(t * 0.5 + z.id + i));
+        g.save();
+        g.translate(z.cx + Math.sin(t * 0.2 + z.id + i) * z.rx * 0.05, z.y);
+        g.scale(z.rx * (i ? 0.9 : 1.02), z.ry * (i ? 0.92 : 1.02));
+        g.rotate(spin ? ang : ang - z.phase * 2);
+        g.globalAlpha = i === 0 ? 0.5 : 0.34;
+        g.drawImage(tex, -1, -1, 2, 2);
+        g.restore();
       }
       if (z.type === 'redoux') {
         g.globalAlpha = 0.35;
@@ -341,6 +373,24 @@ export class Renderer {
           g.stroke();
         }
       }
+    }
+    g.restore();
+  }
+
+  /** Distant mist banks (screen space, parallax) into the glow layer. */
+  drawMist(g, s, camY, tint = 1) {
+    const span = this.viewH * 2.2;
+    g.save();
+    g.setTransform(s, 0, 0, s, 0, 0);
+    g.globalCompositeOperation = 'lighter';
+    for (const m of this.mist) {
+      let y = (m.y - camY * m.k) % span;
+      if (y < 0) y += span;
+      y -= m.h;
+      if (y > this.viewH + m.h) continue;
+      const x = ((m.x + this.time * 4 * (m.v ? 1 : -1)) % (this.viewW + 400)) - 100;
+      g.globalAlpha = m.a * tint;
+      g.drawImage(cloudTexture('mist', m.v), x - m.w / 2, y - m.h / 2, m.w, m.h);
     }
     g.restore();
   }
@@ -631,11 +681,22 @@ export class Renderer {
     }
 
     const blink = f.inv > 0 && Math.floor(this.time * 16) % 2 === 0;
-    this.flakeSprite.sync(c, this.ppu, this.time * 1000);
+    // Sharp even while the camera zooms in (resolution steps of 25 %).
+    const zq = Math.round((this.zoom || 1) * 4) / 4;
+    this.flakeSprite.sync(c, this.ppu * zq, this.time * 1000);
     g.save();
     g.globalAlpha = blink ? 0.45 : 1;
     this.flakeSprite.draw(g, x, y, f.rot);
     g.restore();
+    this.drawGlints(g, c, x, y, f.rot, 1);
+
+    // Sparkle trail left behind in the air.
+    this.trailT = (this.trailT || 0) + 1;
+    if (world.status === 'play' && this.trailT % 5 === 0 && R > 4) {
+      const a = Math.random() * TAU;
+      const rr = Math.random() * R * 0.6;
+      this.fx.add({ kind: 'spark', x: x + Math.cos(a) * rr, y: y + Math.sin(a) * rr, vx: (Math.random() - 0.5) * 6, vy: -4, rgb: world.zoneKey ? ZONES[world.zoneKey].rgb : [200, 225, 255], life: 1.1, size: 1.1 });
+    }
 
     // Target ring: colour of the cloud needed now.
     if (opts.expected !== undefined && opts.expected !== null && world.status === 'play') {
@@ -660,6 +721,31 @@ export class Renderer {
       }
       g.restore();
     }
+  }
+
+  /** Diamond-like glints on arm tips facing the moonlight. */
+  drawGlints(g, c, x, y, rot, scale) {
+    const light = -2.2;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 6; k++) {
+      const arm = c.arms[k];
+      if (arm.R < 6) continue;
+      const a = rot + (k * Math.PI) / 3;
+      const facing = Math.cos(a - light + Math.sin(this.time * 0.7) * 0.4);
+      if (facing < 0.75) continue;
+      const strength = Math.pow((facing - 0.75) / 0.25, 3);
+      const px = x + Math.cos(a) * arm.R * 0.92 * scale;
+      const py = y + Math.sin(a) * arm.R * 0.92 * scale;
+      const size = (6 + arm.R * 0.22) * scale * strength;
+      g.globalAlpha = Math.min(1, strength * 1.2);
+      g.save();
+      g.translate(px, py);
+      g.rotate(this.time * 0.8 + k);
+      g.drawImage(this.sprites.glint, -size, -size, size * 2, size * 2);
+      g.restore();
+    }
+    g.restore();
   }
 
   updateWind(dt, wind) {
@@ -695,6 +781,8 @@ export class Renderer {
   /** Render one frame of a fall. */
   render(world, dt, opts = {}) {
     this.time += dt;
+    this.zoom = opts.zoom || 1;
+    this.focus = opts.zoom ? { x: world.flake.x, y: world.flakeY } : null;
     const g = this.ctx;
     const themeKey = world.def.theme || 'peaks';
     const th = THEMES[themeKey] || THEMES.peaks;
@@ -714,7 +802,8 @@ export class Renderer {
     const sy = this.shakeAmp > 0 && !opts.reduced ? (Math.random() - 0.5) * this.shakeAmp * 5 : 0;
     this.glowPass((gg, s) => {
       if (th.aurora > 0) this.drawAurora(gg, s, th.aurora, camY);
-      gg.setTransform(s, 0, 0, s, (this.offX + sx) * s, (-camY + sy) * s);
+      if (this.quality > 0) this.drawMist(gg, s, camY, 1 - rise * 0.8);
+      this.worldMatrix(gg, s, camY, sx, sy);
       this.drawClouds(gg, world);
     });
     this.worldTransform(camY, sx, sy);
@@ -745,16 +834,39 @@ export class Renderer {
     }
   }
 
-  /** Background for menus: sky, snow and a large slowly turning crystal. */
+  /** Cached night landscape (menus / title), drawn from `horizon` (0..1) down. */
+  panorama(themeKey, horizonFrac) {
+    const horizon = this.viewH * horizonFrac;
+    const key = `${themeKey}|${horizonFrac}|${this.canvas.width}x${this.canvas.height}`;
+    if (this.pano?.key === key) return this.pano;
+    const top = horizon - 200;
+    const p = this.ppu;
+    const c = makeCanvas(this.canvas.width, (this.viewH - top) * p);
+    const g = c.getContext('2d');
+    g.setTransform(p, 0, 0, p, 0, -top * p);
+    drawPanorama(g, THEMES[themeKey] || THEMES.peaks, themeKey, this.viewW, this.viewH, horizon, 0, 3);
+    this.pano = { key, canvas: c, top };
+    return this.pano;
+  }
+
+  /** Background for menus: sky, landscape, snow and a large turning crystal. */
   renderMenu(dt, themeKey, crystal, opts = {}) {
     this.time += dt;
     const g = this.ctx;
     const th = THEMES[themeKey] || THEMES.peaks;
     const camY = this.time * 14;
     this.drawSky(themeKey, camY, 0.35, !!opts.noMoon);
-    if (th.aurora > 0) this.glowPass((gg, s) => this.drawAurora(gg, s, th.aurora, camY));
+    this.glowPass((gg, s) => {
+      if (th.aurora > 0) this.drawAurora(gg, s, th.aurora, camY);
+      this.drawMist(gg, s, camY, 0.8);
+    });
     g.setTransform(1, 0, 0, 1, 0, 0);
     this.drawSnow(this.snowBack, camY, th.snow, 0);
+    if (opts.horizon) {
+      const pano = this.panorama(themeKey, opts.horizon);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.drawImage(pano.canvas, 0, Math.round(pano.top * this.ppu));
+    }
     if (crystal) {
       this.worldTransform(0);
       const cx = WORLD_W / 2;
@@ -773,6 +885,7 @@ export class Renderer {
       g.scale(1 / 1, 1 / 1);
       this.flakeSprite.draw(g, 0, 0, this.time * 0.08, k);
       g.restore();
+      this.drawGlints(g, crystal, cx, cy, this.time * 0.08, k);
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
     this.drawSnow(this.snowFront, camY, th.snow * 0.7, 0);

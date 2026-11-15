@@ -8,6 +8,7 @@ import { Crystal, MODE_KEYS } from '../sim/crystal.js';
 import { thumbnail, drawPhoto } from '../render/photo.js';
 import { supportTexture, SUPPORT_KINDS } from '../render/ground.js';
 import { makeCanvas } from '../render/sprites.js';
+import { chapterBanner } from '../render/banner.js';
 
 const MODE_ZONE = { plate: 'sec', dendrite: 'brume', needle: 'froid', aurora: 'aurore', twist: 'tourbillon' };
 
@@ -94,67 +95,88 @@ export function titleScreen(game) {
 export function menuScreen(game) {
   const s = game.store;
   const totalStars = s.totalStars();
-  const albumN = s.data.album.length;
   const typesN = Object.keys(s.data.types).length;
   const today = game.today();
   const dailyBest = s.dailyBest(today.key);
+  const streak = s.dailyStreak(today.key, today.prev);
   const endlessOk = s.endlessUnlocked();
   const dailyOk = s.dailyUnlocked();
+  const nextId = game.nextLevelId();
+  const anyDone = !!s.level('1-1').done;
 
-  const card = (opts) =>
+  // Main call to action: straight to the next night.
+  const ctaTitle = nextId ? (anyDone ? t('menu.continue') : t('menu.play')) : t('menu.campaign');
+  const ctaSub = nextId ? `${t(`ch.${LEVEL_BY_ID[nextId].chapter}`)} · ${nextId} · ${t(`lvl.${nextId}`)}` : t('menu.allDone');
+  const cta = h(
+    'button',
+    { class: 'cta', onclick: () => (nextId ? game.openLevelIntro(nextId) : game.goCampaign()) },
+    h('span', { class: 'cta-play', html: ICONS.play }),
+    h('span', { class: 'cta-txt' }, h('span', { class: 'cta-t1' }, ctaTitle), h('span', { class: 'cta-t2' }, ctaSub)),
+  );
+  const nights = h(
+    'button',
+    { class: 'cta-side', 'aria-label': t('menu.campaign'), onclick: () => game.goCampaign() },
+    h('span', { html: ICONS.moon, style: { display: 'inline-flex' } }),
+    h('span', { class: 'cta-side-stars' }, h('span', { class: 'gold', html: ICONS.star, style: { display: 'inline-flex' } }), String(totalStars)),
+  );
+
+  const tile = (o) =>
     h(
       'button',
-      { class: `card ${opts.cls || ''} ${opts.locked ? 'locked' : ''}`, onclick: opts.locked ? () => toast(opts.lockMsg) : opts.onclick },
-      h('span', { class: 'ic', html: ICONS[opts.icon] }),
-      h('span', { class: 'txt' }, h('div', { class: 't1' }, opts.title), h('div', { class: 't2' }, opts.sub)),
-      opts.right ? h('span', { class: 'right' }, opts.right) : null,
+      { class: `tile tile-${o.key} ${o.locked ? 'locked' : ''}`, onclick: o.locked ? () => toast(o.lockMsg) : o.onclick },
+      h('span', { class: 'tile-ic', html: ICONS[o.icon] }),
+      h('span', { class: 'tile-t1' }, o.title),
+      h('span', { class: 'tile-t2' }, o.sub),
+      o.badge ? h('span', { class: 'tile-badge' }, o.badge) : null,
+      o.locked ? h('span', { class: 'tile-lock', html: ICONS.lock }) : null,
     );
 
+  const dailyDone = dailyBest > 0;
   return h(
     'div',
     { class: 'screen menu-screen' },
     h(
       'div',
       { class: 'menu-head' },
+      h('div', { class: 'pill' }, h('span', { class: 'gold', html: ICONS.star, style: { display: 'inline-flex' } }), `${totalStars}/${LEVELS.length * 3}`),
       h('h1', { class: 'logo small' }, t('app.title')),
       h('button', { class: 'icon-btn', 'aria-label': t('menu.settings'), html: ICONS.gear, onclick: () => game.goSettings() }),
     ),
     h('div', { class: 'spacer' }),
     h(
       'div',
-      { class: 'col' },
-      card({
-        cls: 'primary',
-        icon: 'moon',
-        title: t('menu.campaign'),
-        sub: t('menu.campaign.sub'),
-        right: h('span', { class: 'gold', style: { display: 'inline-flex', alignItems: 'center', gap: '4px' } }, iconSpan('star'), `${totalStars}/${LEVELS.length * 3}`),
-        onclick: () => game.goCampaign(),
-      }),
-      card({
-        icon: 'target',
-        title: t('menu.daily'),
-        sub: dailyOk ? (dailyBest ? t('menu.dailyDone', { v: dailyBest }) : t('menu.daily.sub')) : t('menu.locked.daily'),
-        locked: !dailyOk,
-        lockMsg: t('menu.locked.daily'),
-        right: dailyOk ? (s.dailyStreak(today.key, today.prev) ? `🔥 ${s.dailyStreak(today.key, today.prev)}` : null) : iconSpan('lock'),
-        onclick: () => game.openDailyIntro(),
-      }),
-      card({
-        icon: 'storm',
-        title: t('menu.endless'),
-        sub: endlessOk ? (s.data.endless.best ? t('menu.best', { n: num(s.data.endless.best) }) : t('menu.endless.sub')) : t('menu.locked.endless'),
-        locked: !endlessOk,
-        lockMsg: t('menu.locked.endless'),
-        right: endlessOk ? null : iconSpan('lock'),
-        onclick: () => game.openEndlessIntro(),
-      }),
-      card({
-        icon: 'book',
-        title: t('menu.album'),
-        sub: tn('menu.album.sub', albumN, { k: typesN, t: TYPES.length }),
-        onclick: () => game.goAlbum(),
-      }),
+      { class: 'menu-panel' },
+      h('div', { class: 'cta-row' }, cta, nights),
+      h(
+        'div',
+        { class: 'tiles' },
+        tile({
+          key: 'daily',
+          icon: 'target',
+          title: t('menu.daily'),
+          sub: dailyOk ? (dailyDone ? `${dailyBest} %` : t('menu.ready')) : t('common.locked'),
+          badge: dailyOk && !dailyDone ? t('common.new') : streak ? `🔥 ${streak}` : null,
+          locked: !dailyOk,
+          lockMsg: t('menu.locked.daily'),
+          onclick: () => game.openDailyIntro(),
+        }),
+        tile({
+          key: 'storm',
+          icon: 'storm',
+          title: t('menu.endless'),
+          sub: endlessOk ? (s.data.endless.best ? num(s.data.endless.best) : '—') : t('common.locked'),
+          locked: !endlessOk,
+          lockMsg: t('menu.locked.endless'),
+          onclick: () => game.openEndlessIntro(),
+        }),
+        tile({
+          key: 'album',
+          icon: 'book',
+          title: t('menu.album'),
+          sub: `${typesN}/${TYPES.length}`,
+          onclick: () => game.goAlbum(),
+        }),
+      ),
     ),
   );
 }
@@ -189,12 +211,16 @@ export function campaignScreen(game, focusChapter) {
         st.done ? starIcons(n) : null,
       );
     });
+    const bw = Math.min(440, window.innerWidth - 36);
+    const art = chapterBanner(ch.theme, bw, 120, ch.id);
+    art.className = 'banner-art';
     const chEl = h(
       'div',
-      { class: 'chapter', 'data-ch': ch.id },
+      { class: `chapter ${unlocked ? '' : 'is-locked'}`, 'data-ch': ch.id },
       h(
         'div',
         { class: `banner theme-${ch.theme}` },
+        art,
         h('div', { class: 'num' }, t('ch.chapter', { n: ch.id })),
         h('div', { class: 'name' }, t(`ch.${ch.id}`)),
         h('div', { class: 'desc' }, t(`ch.${ch.id}.desc`)),
@@ -310,15 +336,42 @@ export function photoBlock(crystal, support, { badge, serial, flash = true } = {
   return h('div', { class: 'photo-wrap' }, canvas, flashEl, badge ? h('div', { class: 'badge' }, badge) : null, serial ? h('div', { class: 'serial' }, serial) : null);
 }
 
+/** Animate a number from 0 to `to` into `el`. */
+function countUp(el, to, fmt, delay = 300, ms = 1000) {
+  el.textContent = fmt(0);
+  const start = performance.now() + delay;
+  const step = (now) => {
+    const k = Math.min(1, Math.max(0, (now - start) / ms));
+    el.textContent = fmt(to * (1 - Math.pow(1 - k, 3)));
+    if (k < 1 && el.isConnected !== false) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 export function resultScreen(game, r) {
   const items = [];
+  const beautyEl = h('div', { class: 'v' }, '0');
+  const sizeEl = h('div', { class: 'v' }, '0');
+  countUp(beautyEl, r.analysis.beauty, (v) => num(Math.round(v)), 500, 1100);
+  countUp(sizeEl, diameterMm(r.crystal.R), (v) => `${v.toFixed(1)} mm`, 400, 900);
   const stats = [
-    h('div', { class: 'stat' }, h('div', { class: 'k' }, t('res.size')), h('div', { class: 'v' }, `${diameterMm(r.crystal.R).toFixed(1)} mm`)),
-    h('div', { class: 'stat' }, h('div', { class: 'k' }, t('res.beauty')), h('div', { class: 'v' }, num(r.analysis.beauty))),
+    h('div', { class: 'stat' }, h('div', { class: 'k' }, t('res.size')), sizeEl),
+    h('div', { class: 'stat' }, h('div', { class: 'k' }, t('res.beauty')), beautyEl),
     r.analysis.match !== null
       ? h('div', { class: 'stat' }, h('div', { class: 'k' }, t('res.match')), h('div', { class: 'v' }, `${Math.round(r.analysis.match * 100)} %`))
       : h('div', { class: 'stat' }, h('div', { class: 'k' }, t('res.shards')), h('div', { class: 'v' }, `${r.stats.shards}/${r.stats.shardsTotal}`)),
   ];
+  if (r.objectives) {
+    items.push(
+      h(
+        'div',
+        { class: 'big-stars', 'aria-label': `${r.objectives.filter((o) => o.done).length}/3` },
+        r.objectives.map((o, i) =>
+          h('span', { class: `big-star ${o.done ? 'on' : ''} s${i}`, style: { animationDelay: `${0.35 + i * 0.32}s` }, html: o.done ? ICONS.star : ICONS.starEmpty }),
+        ),
+      ),
+    );
+  }
   items.push(photoBlock(r.crystal, r.support, { badge: r.newType ? t('res.newType') : null, serial: r.entry ? t('res.unique', { id: r.entry.id }) : null }));
   items.push(
     h(

@@ -126,6 +126,7 @@ class Game {
     this.keys = new Set();
     window.addEventListener('keydown', (e) => this.keys.add(e.key));
     window.addEventListener('keyup', (e) => this.keys.delete(e.key));
+    window.addEventListener('blur', () => this.keys.clear());
     this.onResize();
   }
 
@@ -403,6 +404,13 @@ class Game {
 
   quit() {
     this.screens.closeSheet(true);
+    if (this.mode === 'endless' && this.endless) {
+      // Leaving a run still counts for the record.
+      const rec = this.store.data.endless;
+      rec.best = Math.max(rec.best, this.endless.score);
+      rec.bestFlakes = Math.max(rec.bestFlakes, this.endless.landed);
+      this.store.save();
+    }
     if (this.mode === 'level') this.goCampaign(this.def?.chapter);
     else this.goMenu();
   }

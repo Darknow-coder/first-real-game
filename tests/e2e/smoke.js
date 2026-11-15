@@ -115,6 +115,55 @@ await check('daily flake and blizzard modes start', async () => {
   await page.context().close();
 });
 
+await check('synthesized audio: audible, no clipping, no invalid samples', async () => {
+  const page = await newPage('?reset');
+  const res = await page.evaluate(async () => {
+    const { AudioEngine } = await import('./src/core/audio.js');
+    const out = {};
+    async function render(label, fn, seconds = 4) {
+      const off = new OfflineAudioContext(2, 44100 * seconds, 44100);
+      Object.defineProperty(off, 'state', { get: () => 'running' });
+      const eng = new AudioEngine();
+      eng.ctx = off;
+      eng.build();
+      clearInterval(eng.timer);
+      fn(eng);
+      const buf = await off.startRendering();
+      let peak = 0;
+      let bad = 0;
+      for (let ch = 0; ch < 2; ch++) {
+        for (const v of buf.getChannelData(ch)) {
+          if (!Number.isFinite(v)) bad++;
+          else peak = Math.max(peak, Math.abs(v));
+        }
+      }
+      out[label] = { peak, bad };
+    }
+    await render('music', (e) => {
+      e.playSong('peaks');
+      e.nextBarTime = 0.05;
+      e.schedule();
+    });
+    await render('sfx', (e) => {
+      e.playSong('forest');
+      for (const k of ['brume', 'sec', 'froid', 'givre', 'aurore', 'tourbillon']) e.mote(k, 120);
+      e.hit('hail', true);
+      e.land();
+      e.newType();
+      e.fail();
+      e.shard(2, 5);
+      e.merge();
+    });
+    return out;
+  });
+  for (const [k, v] of Object.entries(res)) {
+    assert(v.bad === 0, `${k}: invalid samples`);
+    assert(v.peak > 0.02, `${k}: silent (${v.peak})`);
+    assert(v.peak < 0.98, `${k}: clipping (${v.peak})`);
+  }
+  await page.context().close();
+});
+
 await browser.close();
 server.kill();
 for (const [s, n] of results) console.log(`${s.padEnd(4)} ${n}`);

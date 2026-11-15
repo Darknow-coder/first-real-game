@@ -70,8 +70,10 @@ fonte, au moins trois types de croissance).
   s'ouvre après la nuit 1-3, la Tempête après le chapitre 1, le velours avec un chef-d'œuvre.
 - **Flocon du jour** : la date sert de graine pour générer la commande et le ciel. Meilleur
   résultat du jour et série de jours consécutifs.
-- **Tempête** : ciels générés, difficulté croissante, le score est la somme des beautés. On
-  continue tant qu'on pose ses flocons.
+- **Tempête** : ciels générés, difficulté croissante et sans plafond, le score est la somme des
+  beautés. Chaque flocon doit atteindre une beauté minimale qui augmente à chaque photo
+  (250, puis +55 par flocon). Chocs et fonte font baisser la beauté, donc la partie finit
+  toujours. Le pilote automatique tient 8 à 11 flocons.
 
 ## Direction artistique
 

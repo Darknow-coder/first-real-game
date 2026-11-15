@@ -628,6 +628,9 @@ button:focus-visible,
   border-radius: 26px 26px 0 0;
   padding: 22px calc(20px + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
   pointer-events: auto;
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   opacity: 0;
   transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1), opacity 0.25s ease;
 }

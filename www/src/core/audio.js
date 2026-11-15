@@ -308,13 +308,13 @@ export class AudioEngine {
       const L = this.barLength;
       // Pad: root + three tones, long and soft.
       const padNotes = [chord[0], chord[1], chord[2], chord[3]];
-      padNotes.forEach((m, i) => this.voice(NOTE(m), t0, { kind: 'pad', gain: i === 0 ? 0.05 : 0.035, dur: L * 1.9, bus: this.musicBus }));
+      padNotes.forEach((m, i) => this.voice(NOTE(m), t0, { kind: 'pad', gain: i === 0 ? 0.1 : 0.07, dur: L * 1.9, bus: this.musicBus }));
       // Sparse music-box melody.
       const beats = 8;
       for (let i = 0; i < beats; i++) {
         if (Math.random() < (i % 2 === 0 ? 0.22 : 0.1)) {
           const m = chord[1 + Math.floor(Math.random() * (chord.length - 1))] + 12;
-          this.voice(NOTE(m), t0 + (i * L) / beats, { kind: 'celesta', gain: 0.07, dur: 1.6, pan: Math.random() * 0.8 - 0.4, bus: this.musicBus });
+          this.voice(NOTE(m), t0 + (i * L) / beats, { kind: 'celesta', gain: 0.11, dur: 1.6, pan: Math.random() * 0.8 - 0.4, bus: this.musicBus });
         }
       }
       this.nextBarTime += L;
